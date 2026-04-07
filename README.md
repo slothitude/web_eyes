@@ -12,6 +12,7 @@ Web Eyes provides a pipeline of web intelligence tools:
 2. **Crawl** — extract clean text from URLs using a headless browser
 3. **Summarize** — distill content via an LLM (NVIDIA NIM)
 4. **Ask** — full pipeline: search → crawl → synthesize an answer with citations
+5. **See** — take screenshots and use a vision LLM to extract content from JS-heavy, canvas-rendered, or image-heavy pages
 
 These are exposed via a **FastAPI REST API** and an **MCP (Model Context Protocol) server**, so any MCP-compatible agent (Claude Desktop, Claude Code, Cursor, etc.) can use them directly.
 
@@ -64,6 +65,7 @@ python run_mcp.py sse          # SSE on port 3001
 | `POST` | `/crawl` | Crawl specific URLs |
 | `POST` | `/summarize` | Crawl + summarize specific URLs |
 | `POST` | `/ask` | Search → crawl → answer with citations |
+| `POST` | `/see` | Screenshot + vision extraction + summarize |
 
 Example:
 
@@ -81,6 +83,7 @@ curl -X POST http://localhost:3000/search \
 | `crawl_pages` | `urls` | Extract raw text from URLs |
 | `summarize_pages` | `urls`, `instruction?` | Crawl and summarize URLs |
 | `ask_web` | `question`, `scrape_top=3` | Answer a question with web sources |
+| `see_pages` | `urls`, `instruction?`, `extract_prompt?` | Screenshot + vision extraction + summarize |
 
 ### Agent Configuration
 
@@ -112,6 +115,10 @@ All settings are in `.env`. See `.env.example` for defaults.
 | `NIM_API_KEY` | — | NVIDIA NIM API key (required for summarize/ask) |
 | `NIM_BASE_URL` | `https://integrate.api.nvidia.com/v1` | NIM API endpoint |
 | `NIM_MODEL` | `google/gemma-3-27b-it` | LLM model for summarization |
+| `NIM_VISION_MODEL` | `google/gemma-3-27b-it` | Vision model for screenshot extraction |
+| `VISION_FALLBACK_ENABLED` | `true` | Auto-fallback to vision when text extraction fails |
+| `VISION_WORD_THRESHOLD` | `30` | Minimum words before triggering vision fallback |
+| `VISION_MAX_IMAGE_DIMENSION` | `1280` | Max screenshot dimension before resize |
 | `SEARXNG_HOST` | `localhost` | SearXNG host |
 | `SEARXNG_PORT` | `8888` | SearXNG port |
 | `API_HOST` | `0.0.0.0` | REST API bind address |
@@ -124,12 +131,13 @@ All settings are in `.env`. See `.env.example` for defaults.
 ```
 web_eyes/
 ├── main.py           FastAPI app (REST + mounted MCP)
-├── mcp_server.py     MCP server with 4 tools
+├── mcp_server.py     MCP server with 5 tools
 ├── run_mcp.py        Standalone MCP entry point
 ├── controller.py     Core pipeline logic
 ├── search.py         SearXNG search client
 ├── crawler.py        Crawl4AI web crawler
-├── summarizer.py     NIM LLM summarization
+├── summarizer.py     NIM LLM summarization + vision extraction
+├── vision.py         Image resize and message utilities
 ├── config.py         Environment config
 ├── logger.py         Rich logging
 ├── docker-compose.yml
