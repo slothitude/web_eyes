@@ -13,6 +13,7 @@ Web Eyes provides a pipeline of web intelligence tools:
 3. **Summarize** — distill content via an LLM (NVIDIA NIM)
 4. **Ask** — full pipeline: search → crawl → synthesize an answer with citations
 5. **See** — take screenshots and use a vision LLM to extract content from JS-heavy, canvas-rendered, or image-heavy pages
+6. **Look** — analyze any image directly via vision AI (no URL crawling needed)
 
 These are exposed via a **FastAPI REST API** and an **MCP (Model Context Protocol) server**, so any MCP-compatible agent (Claude Desktop, Claude Code, Cursor, etc.) can use them directly.
 
@@ -66,6 +67,7 @@ python run_mcp.py sse          # SSE on port 3001
 | `POST` | `/summarize` | Crawl + summarize specific URLs |
 | `POST` | `/ask` | Search → crawl → answer with citations |
 | `POST` | `/see` | Screenshot + vision extraction + summarize |
+| `POST` | `/look` | Analyze a base64-encoded image with vision AI |
 
 Example:
 
@@ -84,6 +86,7 @@ curl -X POST http://localhost:3000/search \
 | `summarize_pages` | `urls`, `instruction?` | Crawl and summarize URLs |
 | `ask_web` | `question`, `scrape_top=3` | Answer a question with web sources |
 | `see_pages` | `urls`, `instruction?`, `extract_prompt?` | Screenshot + vision extraction + summarize |
+| `look_at_image` | `image_base64`, `instruction?` | Analyze an image directly with vision AI |
 
 ### Agent Configuration
 
@@ -131,7 +134,7 @@ All settings are in `.env`. See `.env.example` for defaults.
 ```
 web_eyes/
 ├── main.py           FastAPI app (REST + mounted MCP)
-├── mcp_server.py     MCP server with 5 tools
+├── mcp_server.py     MCP server with 6 tools
 ├── run_mcp.py        Standalone MCP entry point
 ├── controller.py     Core pipeline logic
 ├── search.py         SearXNG search client
