@@ -17,6 +17,7 @@ from controller import (
     summarize_urls,
     ask_question,
     see_urls,
+    analyze_image,
 )
 
 # --- MCP sub-app (created before FastAPI so its lifespan can be composed) ---
@@ -98,6 +99,11 @@ class SeeRequest(BaseModel):
     urls: list[str] = Field(..., min_length=1)
     instruction: str | None = None
     extract_prompt: str | None = None
+
+
+class LookRequest(BaseModel):
+    image_base64: str
+    instruction: str | None = None
 
 
 # --- Helpers ---
@@ -196,6 +202,17 @@ async def handle_see(req: SeeRequest):
         "sources": res.sources,
         "vision_used": res.vision_used,
     }
+
+
+@app.post("/look")
+async def handle_look(req: LookRequest):
+    """Analyze a base64-encoded image directly with vision AI."""
+    _check_nim_key()
+    try:
+        res = await analyze_image(req.image_base64, instruction=req.instruction)
+    except NIMAuthError as e:
+        raise HTTPException(status_code=401, detail=f"NIM authentication failed: {e}") from e
+    return {"description": res.description}
 
 
 if __name__ == "__main__":

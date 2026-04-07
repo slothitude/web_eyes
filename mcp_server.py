@@ -16,6 +16,7 @@ from controller import (
     summarize_urls,
     ask_question,
     see_urls,
+    analyze_image,
 )
 
 MAX_CRAWL_CHARS = 50_000
@@ -182,3 +183,30 @@ async def see_pages(
     if res.vision_used:
         lines.append(f"\nVision extraction used for: {', '.join(res.vision_used)}")
     return "\n".join(lines)
+
+
+@server.tool
+async def look_at_image(
+    ctx: Context,
+    image_base64: str,
+    instruction: str | None = None,
+) -> str:
+    """Analyze an image directly using vision AI. No URL crawling needed.
+
+    Send a base64-encoded image and get a description or analysis back.
+    Useful when you already have an image (from a file, clipboard, or previous step)
+    and just want it analyzed.
+
+    Args:
+        image_base64: Base64-encoded image data (no data URI prefix needed).
+        instruction: Optional instruction for what to analyze or describe.
+    """
+    if not config.NIM_API_KEY:
+        return "Error: NIM_API_KEY is not configured. Set it in .env"
+
+    try:
+        res = await analyze_image(image_base64, instruction=instruction)
+    except NIMAuthError as e:
+        return f"Error: NIM authentication failed: {e}"
+
+    return res.description

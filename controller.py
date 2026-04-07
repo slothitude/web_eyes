@@ -7,7 +7,8 @@ from crawl4ai import AsyncWebCrawler, BrowserConfig
 from logger import log
 from search import search, SearchResult
 from crawler import crawl_urls, crawl_urls_with_screenshots, CrawlResult
-from summarizer import summarize
+from summarizer import summarize, vision_extract
+import vision
 
 
 @dataclass
@@ -204,3 +205,35 @@ async def see_urls(
         sources=sources,
         vision_used=crawl_res.vision_used,
     )
+
+
+@dataclass
+class LookResponse:
+    description: str
+
+
+IMAGE_SYSTEM_PROMPT = (
+    "You are a helpful visual analysis assistant. Describe and analyze images "
+    "accurately and thoroughly. Follow the user's instructions precisely. "
+    "Be detailed but concise."
+)
+
+IMAGE_DEFAULT_PROMPT = "Describe what you see in this image in detail."
+
+
+async def analyze_image(
+    image_base64: str,
+    *,
+    instruction: str | None = None,
+) -> LookResponse:
+    """Analyze a base64-encoded image using vision AI. No crawling needed."""
+    resized = vision.resize_base64_image(image_base64)
+    extract_prompt = instruction or IMAGE_DEFAULT_PROMPT
+
+    description = await vision_extract(
+        resized,
+        extract_prompt=extract_prompt,
+        system_prompt=IMAGE_SYSTEM_PROMPT,
+    )
+
+    return LookResponse(description=description)

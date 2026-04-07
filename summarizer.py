@@ -125,6 +125,7 @@ async def vision_extract(
     b64_image: str,
     *,
     extract_prompt: str | None = None,
+    system_prompt: str | None = None,
     temperature: float = 0.1,
     max_tokens: int = 4096,
 ) -> str:
@@ -133,13 +134,14 @@ async def vision_extract(
     from config import NIM_VISION_MODEL
 
     prompt = extract_prompt or VISION_EXTRACT_PROMPT
+    sys_prompt = system_prompt or VISION_SYSTEM_PROMPT
 
     log.info(f"Calling vision model ({NIM_VISION_MODEL}) for extraction")
 
     resp = await client.chat.completions.create(
         model=NIM_VISION_MODEL,
         messages=[
-            {"role": "system", "content": VISION_SYSTEM_PROMPT},
+            {"role": "system", "content": sys_prompt},
             {
                 "role": "user",
                 "content": [
