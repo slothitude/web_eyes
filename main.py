@@ -16,6 +16,7 @@ from controller import (
     crawl_only,
     summarize_urls,
     ask_question,
+    see_urls,
 )
 
 # --- MCP sub-app (created before FastAPI so its lifespan can be composed) ---
@@ -93,6 +94,12 @@ class AskRequest(BaseModel):
     scrape_top: int = Field(default=3, ge=1, le=10)
 
 
+class SeeRequest(BaseModel):
+    urls: list[str] = Field(..., min_length=1)
+    instruction: str | None = None
+    extract_prompt: str | None = None
+
+
 # --- Helpers ---
 
 
@@ -167,6 +174,27 @@ async def handle_ask(req: AskRequest):
     return {
         "answer": res.answer,
         "sources": res.sources,
+    }
+
+
+@app.post("/see")
+async def handle_see(req: SeeRequest):
+    """Screenshot + vision model to extract and summarize page content."""
+    assert crawler is not None
+    _check_nim_key()
+    try:
+        res = await see_urls(
+            req.urls,
+            crawler,
+            instruction=req.instruction,
+            extract_prompt=req.extract_prompt,
+        )
+    except NIMAuthError as e:
+        raise HTTPException(status_code=401, detail=f"NIM authentication failed: {e}") from e
+    return {
+        "summary": res.summary,
+        "sources": res.sources,
+        "vision_used": res.vision_used,
     }
 
 

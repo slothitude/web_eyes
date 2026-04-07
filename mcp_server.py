@@ -15,6 +15,7 @@ from controller import (
     crawl_only,
     summarize_urls,
     ask_question,
+    see_urls,
 )
 
 MAX_CRAWL_CHARS = 50_000
@@ -145,3 +146,39 @@ async def ask_web(
         return f"Error: NIM authentication failed: {e}"
 
     return res.answer
+
+
+@server.tool
+async def see_pages(
+    ctx: Context,
+    urls: list[str],
+    instruction: str | None = None,
+    extract_prompt: str | None = None,
+) -> str:
+    """Take screenshots of web pages and use vision AI to extract and summarize their content.
+
+    Use this for JS-heavy pages, canvas-rendered content, or image-heavy layouts
+    where normal text extraction may fail.
+
+    Args:
+        urls: List of URLs to capture and analyze with vision.
+        instruction: Optional custom instruction for summarization.
+        extract_prompt: Optional custom prompt for vision text extraction.
+    """
+    if not config.NIM_API_KEY:
+        return "Error: NIM_API_KEY is not configured. Set it in .env"
+
+    crawler = ctx.lifespan_context["crawler"]
+    try:
+        res = await see_urls(
+            urls, crawler, instruction=instruction, extract_prompt=extract_prompt
+        )
+    except NIMAuthError as e:
+        return f"Error: NIM authentication failed: {e}"
+
+    lines = [res.summary, "", "Sources:"]
+    for s in res.sources:
+        lines.append(f"- {s.get('url', '')}")
+    if res.vision_used:
+        lines.append(f"\nVision extraction used for: {', '.join(res.vision_used)}")
+    return "\n".join(lines)

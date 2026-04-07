@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 from openai import AsyncOpenAI
 
 from logger import log
+from vision import build_image_message
 
 
 SYSTEM_PROMPT = (
@@ -103,3 +104,54 @@ async def summarize_stream(
         delta = chunk.choices[0].delta.content
         if delta:
             yield delta
+
+
+VISION_SYSTEM_PROMPT = (
+    "You are a precise content extraction assistant. Your job is to extract all visible text "
+    "from a webpage screenshot. Preserve the document structure (headings, paragraphs, lists, tables). "
+    "Skip navigation menus, cookie banners, advertisements, and footer links. "
+    "If the screenshot shows an error page or is blank, say so. "
+    "Be thorough and faithful to the original content."
+)
+
+VISION_EXTRACT_PROMPT = (
+    "Extract all meaningful text content from this webpage screenshot. "
+    "Preserve headings, paragraphs, lists, and tables. "
+    "Skip navigation, ads, cookie banners, and footers."
+)
+
+
+async def vision_extract(
+    b64_image: str,
+    *,
+    extract_prompt: str | None = None,
+    temperature: float = 0.1,
+    max_tokens: int = 4096,
+) -> str:
+    """Extract text from a base64-encoded image using a vision model."""
+    client = _client()
+    from config import NIM_VISION_MODEL
+
+    prompt = extract_prompt or VISION_EXTRACT_PROMPT
+
+    log.info(f"Calling vision model ({NIM_VISION_MODEL}) for extraction")
+
+    resp = await client.chat.completions.create(
+        model=NIM_VISION_MODEL,
+        messages=[
+            {"role": "system", "content": VISION_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    build_image_message(b64_image),
+                ],
+            },
+        ],
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+
+    text = resp.choices[0].message.content or ""
+    log.info(f"Vision extraction: {len(text)} chars")
+    return text

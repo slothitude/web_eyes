@@ -6,7 +6,7 @@ from crawl4ai import AsyncWebCrawler, BrowserConfig
 
 from logger import log
 from search import search, SearchResult
-from crawler import crawl_urls, CrawlResult
+from crawler import crawl_urls, crawl_urls_with_screenshots, CrawlResult
 from summarizer import summarize
 
 
@@ -35,6 +35,13 @@ class SummarizeResponse:
 class AskResponse:
     answer: str
     sources: list[dict[str, str]]
+
+
+@dataclass
+class SeeResponse:
+    summary: str
+    sources: list[dict[str, str]]
+    vision_used: list[str]
 
 
 async def search_and_crawl(
@@ -167,3 +174,33 @@ def urls_from_results(results: list[SearchResult]) -> list[SearchResult]:
             seen.add(r.url)
             unique.append(r)
     return unique
+
+
+async def see_urls(
+    urls: list[str],
+    crawler: AsyncWebCrawler,
+    *,
+    instruction: str | None = None,
+    extract_prompt: str | None = None,
+) -> SeeResponse:
+    """Screenshot + vision model for all URLs, then summarize."""
+    crawl_res = await crawl_urls_with_screenshots(
+        crawler, urls, extract_prompt=extract_prompt
+    )
+
+    sources = [{"url": u} for u in urls if u not in crawl_res.failed_urls]
+
+    if not crawl_res.content:
+        return SeeResponse(
+            summary="Could not extract content from any pages using vision.",
+            sources=sources,
+            vision_used=crawl_res.vision_used,
+        )
+
+    summary = await summarize(crawl_res.content, instruction=instruction)
+
+    return SeeResponse(
+        summary=summary,
+        sources=sources,
+        vision_used=crawl_res.vision_used,
+    )
